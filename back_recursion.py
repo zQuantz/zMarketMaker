@@ -18,43 +18,64 @@ coocc = (coocc.T / coocc.sum(axis=1)).T
 
 ###################################################################################################
 
-def state_generator(k):
-	
-	unrealized = [0]
-	position = [0]
-	move = [0]
-
-	for i in range(1, k+1):
-		move.append(-TICK_LIMIT)
-		position.append(min(i+1, MAX_POSITION))
-		unrealized.append(max(-MAX_UNREALIZED, unrealized[-1] + position[i-1] * move[-1]))
-
-	max_unrl = max(abs(np.array(unrealized)))
-	possible_unrealized = np.arange(-max_unrl, max_unrl+1)
-	possible_position = np.arange(-MAX_POSITION, MAX_POSITION+1)
-	ask_prices = [i for i in range(0, TICK_LIMIT+2)]
-	bid_prices = [-i for i in range(0, TICK_LIMIT+2)]
-	
-	return product(possible_position, possible_unrealized, bid_prices, [1], ask_prices, [1], TICKS)
+def state_generator(max_k):
+    
+    positions = {
+        i : [] for i in range(max_k + 1)
+    }
+    unrealized_pnls = positions.copy()
+    ticks = positions.copy()
+    
+    ## Base Case
+    ticks[0] = [0]
+    positions[0] = [0]
+    unrealized_pnls[0] = [0]
+    
+    ## Second Base Case
+    ticks[1] = TICKS
+    positions[1] = [-1, 0, 1]
+    unrealized_pnls[1] = [0]*len(TICKS)
+    
+    for i in range(2, max_k + 1):
+        
+        ticks[i] = TICKS
+        
+        k = min(i, MAX_POSITION)
+        positions[i] = [position - k for position in range(0, k * 2 + 1)]
+        unrealized_pnls[i] = [i - MAX_UNREALIZED for i in range(0, 2 * MAX_UNREALIZED + 1)]
+        
+    states = {i : [] for i in range(len(positions))}
+    for i in range(len(states)):
+        states[i] = list(product(set(positions[i]), set(unrealized_pnls[i]), set(ticks[i])))
+        states[i] = [list(state) for state in states[i]]
+        
+    return states
 
 def solve():
 
-	K = 50
+	K = 200
+	states = state_generator(K)
 
-	J_N = {}
-	U_N = {}
-	for state in state_generator(K):
-		J_N[state] = terminal_cost(state)
+	### N-Step
+	J_N, U_N = {}, {}
+	for state in states[K]:
+		J_N[tuple(state)] = terminal_cost(state)
 
-	J = J_N
-	U = U_N
+	J, U = J_N, U_N
+	with open(f'dicts/U_{K}.pickle', 'wb') as file:
+			pickle.dump(U_N, file)
 
-	while(K >= 0):
+	with open(f'dicts/J_{K}.pickle', 'wb') as file:
+		pickle.dump(J_N, file)
 
+	## K-Steps
+	while(K > 0):
+
+		K -= 1
 		print("Starting Stage", K)
 
 		J_K, U_K = {}, {}
-		for j, state in enumerate(state_generator(K-1)):
+		for j, state in enumerate(states[K]):
 
 			print("State", j)
 
@@ -69,7 +90,7 @@ def solve():
 				
 				for tick in ticks:
 
-					new_state, cost = transition_and_cost(list(state), action, tick)
+					new_state, cost = transition_and_cost(state.copy(), action, tick)
 					p = coocc[state[-1] + TICK_LIMIT, tick + TICK_LIMIT]
 					print("Next Tick Probability", p)
 					print("Next Cost", cost)
@@ -83,6 +104,7 @@ def solve():
 				costs[i] = avg_cost
 
 			idx = np.argmax(costs)
+			state = tuple(state)
 			J_K[state] = costs[idx]
 			U_K[state] = actions[idx]
 
@@ -91,8 +113,6 @@ def solve():
 
 		with open(f'dicts/J_{K}.pickle', 'wb') as file:
 			pickle.dump(J_K, file)
-
-		K -= 1
 
 		J = J_K
 		U = U_K

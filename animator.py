@@ -2,15 +2,27 @@ from dp import get_initial_state, get_possible_actions, transition_and_cost
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-np.random.seed(72)
+import pickle
+np.random.seed(3)
 
 ###################################################################################################
 
+PATHS = np.load('data/sample_paths.npy')
 LENGTH = 200
+PATHS = PATHS[:, :LENGTH]
 
 ###################################################################################################
 
-def compute_random_policy():
+def get_exact_method_action(k, state):
+	with open(f'exact_method_200/U_{k}.pickle', 'rb') as file:
+		U = pickle.load(file)
+	return U[tuple(state)]
+
+def get_random_action(k, state):
+	actions = get_possible_actions(state)
+	return actions[np.random.randint(0, len(actions))]
+
+def compute_random_policy(get_action):
 
 	bid_prices = []
 	bid_volumes = []
@@ -27,15 +39,15 @@ def compute_random_policy():
 
 	state = get_initial_state()
 
-	jumps = pd.read_csv("data/ibm_t.csv").change.values
-	jumps = jumps[2000:2000+LENGTH]
+	# jumps = pd.read_csv("data/ibm_t.csv").change.values
+	# jumps = jumps[4000:4000+LENGTH][::-1]
+	jumps = PATHS[12]
 
-	for i in range(len(jumps[:LENGTH])):
+	for i in range(LENGTH):
 			
 		print("Step", i)
 
-		actions = get_possible_actions(state)
-		action = actions[np.random.randint(0, len(actions))]
+		action = get_action(i, state)
 		
 		## Log the action pre-jump
 		prices.append(0)
@@ -58,11 +70,11 @@ def compute_random_policy():
 		prices.append(jump)
 		cprices = np.cumsum(prices)
 			
-		bid_prices.append(state[2] + cprices[-1])
-		bid_volumes.append(state[3])
+		bid_prices.append(action[0] + cprices[-1] - jump)
+		bid_volumes.append(action[1])
 
-		ask_prices.append(state[4] + cprices[-1])
-		ask_volumes.append(state[5])
+		ask_prices.append(action[2] + cprices[-1] - jump)
+		ask_volumes.append(action[3])
 
 		unrealized_pnls.append(state[1])
 		realized_pnls.append(cost)
@@ -76,8 +88,8 @@ def compute_random_policy():
 def z_animate():
 
 	print("Animating")
-
-	bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices = compute_random_policy()
+	arrs = compute_random_policy(get_exact_method_action)
+	bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices = arrs
 
 	for idx in range(1, len(cprices)):
 

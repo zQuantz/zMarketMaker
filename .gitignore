@@ -6,3 +6,5 @@ tmp/
 data/
 .ipynb_checkpoints
 __pycache__
+exact_method_200
+exact_method_gifs
