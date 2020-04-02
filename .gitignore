@@ -4,3 +4,5 @@ inspected/
 plots/
 tmp/
 data/
+.ipynb_checkpoints
+__pycache__
