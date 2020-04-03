@@ -22,7 +22,67 @@ def get_random_action(k, state):
 	actions = get_possible_actions(state)
 	return actions[np.random.randint(0, len(actions))]
 
-def compute_random_policy(get_action):
+def rollout_policy():
+
+	with open('rollout/0_200.pickle', 'rb') as file:
+		obj = pickle.load(file)
+
+	bid_prices = []
+	bid_volumes = []
+
+	ask_prices = []
+	ask_volumes = []
+	 
+	prices = []
+	cprices = []
+
+	unrealized_pnls = []
+	realized_pnls = []
+	net_position = []
+
+	path = PATHS[12, :200]
+
+	for i, (state, action, cost, jump) in enumerate(zip(*obj.values(), path)):
+
+		print("Step", i)
+
+		state, next_state = state
+
+		## Log the action pre-jump
+		prices.append(0)
+		cprices = np.cumsum(prices)
+			
+		bid_prices.append(action[0] + cprices[-1])
+		bid_volumes.append(action[1])
+
+		ask_prices.append(action[2] + cprices[-1])
+		ask_volumes.append(action[3])
+		
+		unrealized_pnls.append(state[1])
+		realized_pnls.append(0)
+		net_position.append(state[0])
+		
+		state = next_state
+		
+		prices.append(jump)
+		cprices = np.cumsum(prices)
+			
+		bid_prices.append(action[0] + cprices[-1] - jump)
+		bid_volumes.append(action[1])
+
+		ask_prices.append(action[2] + cprices[-1] - jump)
+		ask_volumes.append(action[3])
+
+		unrealized_pnls.append(state[1])
+		realized_pnls.append(cost)
+		net_position.append(state[0])
+		
+	realized_pnls = np.cumsum(realized_pnls)
+	cprices = np.cumsum(prices)
+
+	return bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices
+
+def compute_policy(get_action):
 
 	bid_prices = []
 	bid_volumes = []
@@ -39,8 +99,6 @@ def compute_random_policy(get_action):
 
 	state = get_initial_state()
 
-	# jumps = pd.read_csv("data/ibm_t.csv").change.values
-	# jumps = jumps[4000:4000+LENGTH][::-1]
 	jumps = PATHS[12]
 
 	for i in range(LENGTH):
@@ -88,7 +146,8 @@ def compute_random_policy(get_action):
 def z_animate():
 
 	print("Animating")
-	arrs = compute_random_policy(get_exact_method_action)
+	# arrs = compute_random_policy(get_exact_method_action)
+	arrs = rollout_policy()
 	bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices = arrs
 
 	for idx in range(1, len(cprices)):

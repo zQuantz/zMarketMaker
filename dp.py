@@ -36,8 +36,8 @@ ASK_BAN = list(set(ASK_BAN))
 
 ###################################################################################################
 
-# def print(*args):
-# 	pass
+def print(*args):
+	pass
 
 def get_initial_state():
 	return [

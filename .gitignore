@@ -8,3 +8,5 @@ data/
 __pycache__
 exact_method_200
 exact_method_gifs
+rollout/
+rollout_gifs/
