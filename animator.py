@@ -1,4 +1,6 @@
 from dp import get_initial_state, get_possible_actions, transition_and_cost
+from const import TICK_LIMIT, TICKS
+from keras.models import load_model
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -11,6 +13,11 @@ PATHS = np.load('data/sample_paths.npy')
 LENGTH = 200
 PATHS = PATHS[:, :LENGTH]
 
+nn = load_model("keras_models_3/1")
+
+coocc = pd.read_csv('data/cooccurrence_matrix.csv', index_col = 0)
+coocc = (coocc.T / coocc.sum(axis=1)).T.values
+
 ###################################################################################################
 
 def get_exact_method_action(k, state):
@@ -21,6 +28,25 @@ def get_exact_method_action(k, state):
 def get_random_action(k, state):
 	actions = get_possible_actions(state)
 	return actions[np.random.randint(0, len(actions))]
+
+def get_parametrized_action(k, state):
+
+	costs = []
+	actions = get_possible_actions(state)
+	for action in actions:
+		
+		avg_cost = 0
+		
+		for tick in TICKS:
+			
+			p = coocc[state[-1] + TICK_LIMIT, tick + TICK_LIMIT]
+			next_state, cost = transition_and_cost(state.copy(), action, tick)
+			avg_cost += p * (cost + nn.predict(np.array([next_state]))[0][0])
+		
+		costs.append(avg_cost)
+	
+	idx = np.argmax(costs)
+	return actions[idx]
 
 def rollout_policy():
 
@@ -99,7 +125,7 @@ def compute_policy(get_action):
 
 	state = get_initial_state()
 
-	jumps = PATHS[12]
+	jumps = PATHS[0]
 
 	for i in range(LENGTH):
 			
@@ -146,8 +172,8 @@ def compute_policy(get_action):
 def z_animate():
 
 	print("Animating")
-	# arrs = compute_random_policy(get_exact_method_action)
-	arrs = rollout_policy()
+	arrs = compute_policy(get_parametrized_action)
+	# arrs = rollout_policy()
 	bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices = arrs
 
 	for idx in range(1, len(cprices)):

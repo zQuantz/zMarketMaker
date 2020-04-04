@@ -10,3 +10,5 @@ exact_method_200
 exact_method_gifs
 rollout/
 rollout_gifs/
+keras_models*
+states/
