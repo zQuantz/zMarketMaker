@@ -39,7 +39,7 @@ def get_action_subset(state):
 
 def deeper(state, weighted_cost, k):
 
-	if k == 3:
+	if k == 2:
 		global costs
 		costs.append(weighted_cost)
 	else:
@@ -48,12 +48,12 @@ def deeper(state, weighted_cost, k):
 		for action in actions:
 			for tick in np.random.choice(TICKS, p=ps, size=4):
 				next_state, cost = transition_and_cost(state.copy(), action, tick)
-				deeper(next_state, ps[tick + TICK_LIMIT] * cost, k+1)
+				deeper(next_state, ps[tick + TICK_LIMIT] * (weighted_cost + cost), k+1)
 
 def rollout():
 
 	K = 200
-	path_idx = 0
+	path_idx = 12
 	path = paths[path_idx, :K]
 
 	state = get_initial_state()
@@ -86,11 +86,11 @@ def rollout():
 		policy.append(best_action)
 		rewards.append(reward)
 
-		state = next_state
-
 		print(k)
 		print(state, next_state, best_action, reward)
 		print()
+
+		state = next_state
 
 	objs = {
 		"states" : states,

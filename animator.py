@@ -1,10 +1,11 @@
-from dp import get_initial_state, get_possible_actions, transition_and_cost
+from dp import get_initial_state, get_possible_actions, transition_and_cost, terminal_cost
 from const import TICK_LIMIT, TICKS
 from keras.models import load_model
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import pickle
+import joblib
 np.random.seed(3)
 
 ###################################################################################################
@@ -14,6 +15,9 @@ LENGTH = 200
 PATHS = PATHS[:, :LENGTH]
 
 nn = load_model("keras_models_3/1")
+
+with open('linear_models_2/simple_linear_models.pkl', 'rb') as file:
+	linear_models = joblib.load(file)
 
 coocc = pd.read_csv('data/cooccurrence_matrix.csv', index_col = 0)
 coocc = (coocc.T / coocc.sum(axis=1)).T.values
@@ -42,6 +46,28 @@ def get_parametrized_action(k, state):
 			p = coocc[state[-1] + TICK_LIMIT, tick + TICK_LIMIT]
 			next_state, cost = transition_and_cost(state.copy(), action, tick)
 			avg_cost += p * (cost + nn.predict(np.array([next_state]))[0][0])
+		
+		costs.append(avg_cost)
+	
+	idx = np.argmax(costs)
+	return actions[idx]
+
+def get_linear_parametrized_action(k, state):
+
+	costs = []
+	actions = get_possible_actions(state)
+	for action in actions:
+		
+		avg_cost = 0
+		
+		for tick in TICKS:
+			
+			p = coocc[state[-1] + TICK_LIMIT, tick + TICK_LIMIT]
+			next_state, cost = transition_and_cost(state.copy(), action, tick)
+			try:
+				avg_cost += p * (cost + linear_models[k+1].predict(np.array([next_state]))[0])
+			except:
+				avg_cost += p * (cost + terminal_cost(next_state))
 		
 		costs.append(avg_cost)
 	
@@ -125,7 +151,7 @@ def compute_policy(get_action):
 
 	state = get_initial_state()
 
-	jumps = PATHS[0]
+	jumps = PATHS[12]
 
 	for i in range(LENGTH):
 			
@@ -172,7 +198,7 @@ def compute_policy(get_action):
 def z_animate():
 
 	print("Animating")
-	arrs = compute_policy(get_parametrized_action)
+	arrs = compute_policy(get_linear_parametrized_action)
 	# arrs = rollout_policy()
 	bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices = arrs
 

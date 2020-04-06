@@ -8,6 +8,7 @@ import sys, os
 
 MAX_POSITION = 3
 MAX_UNREALIZED = 30
+TRADE_BENEFIT = 0.25
 
 MAX_VOLUME = 1
 MIN_VOLUME = 1
@@ -89,7 +90,7 @@ def transition_and_cost(state, action, randomness):
 				print("Closing 1 Long Position")
 				p = 1 / abs(state[0])
 				cost = p * state[1]
-				state[1] = (1 - p) * state[1]
+				state[1] = (1 - p) * state[1] + TRADE_BENEFIT
 				state[0] -= 1
 				print("Realized", cost)
 
@@ -105,7 +106,7 @@ def transition_and_cost(state, action, randomness):
 			elif state[0] < 0:
 				print("Closing 1 Short Position.")
 				p = 1 / abs(state[0])
-				cost = p * state[1]
+				cost = p * state[1] + TRADE_BENEFIT
 				state[1] = (1 - p) * state[1]
 				state[0] += 1
 				print("Realized", cost)
@@ -113,6 +114,9 @@ def transition_and_cost(state, action, randomness):
 	print("")
 	state[1] = int(state[1]) ## Reduce the number of states
 	state[-1] = randomness ## Log the jump
+
+	if cost == 0 and state[1] < 0:
+		cost = 0.33 * state[1]
 	
 	return state, cost
 
