@@ -1,6 +1,6 @@
 from dp import get_initial_state, get_possible_actions, transition_and_cost, terminal_cost
 from const import TICK_LIMIT, TICKS
-from keras.models import load_model
+# from keras.models import load_model
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -14,7 +14,7 @@ PATHS = np.load('data/sample_paths.npy')
 LENGTH = 200
 PATHS = PATHS[:, :LENGTH]
 
-nn = load_model("keras_models_3/1")
+# nn = load_model("keras_models_3/1")
 
 with open('linear_models_2/simple_linear_models.pkl', 'rb') as file:
 	linear_models = joblib.load(file)
@@ -198,7 +198,7 @@ def compute_policy(get_action):
 def z_animate():
 
 	print("Animating")
-	arrs = compute_policy(get_linear_parametrized_action)
+	arrs = compute_policy(get_exact_method_action)
 	# arrs = rollout_policy()
 	bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices = arrs
 
@@ -216,6 +216,12 @@ def z_animate():
 		ax[0, 0].axhline(bid_prices[idx-1], color="g", label="bid")
 		ax[0, 0].legend()
 		ax[0, 0].set_ylim(min_, max_)
+		for i in range(1, len(net_position[:idx])):
+			c = net_position[i]
+			p = net_position[i-1]
+			if c != p:
+				diff = c - p
+				ax[0, 0].annotate("x", (i, cprices[i]), color="g" if diff > 0 else "r")
 
 		modifier = "Action Step" if idx % 2 == 0 else "Jump Step"
 		ax[0, 0].set_title(f"Market Maker Actions & Price - {modifier}")
