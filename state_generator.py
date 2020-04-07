@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import sys, os
 import joblib
+import time
 
 K = 1
 LENGTH = 201
@@ -13,7 +14,7 @@ paths = np.load("data/sample_paths.npy")[:NUM_PATHS, :LENGTH]
 state_at_step = {
     i : {} for i in range(LENGTH)
 }
-
+start = time.time()
 for i, path in enumerate(paths):
     
     print(f"Progress: {(i + 1 ) / len(paths) * 100}%")
@@ -37,6 +38,8 @@ for i, path in enumerate(paths):
         idx = np.random.randint(0, len(actions))
         next_state, cost = transition_and_cost(state.copy(), actions[idx], v)
         state = next_state
+end = time.time()
 
+print("Total Computation Time", end - start)
 with open(f'states/states_{NUM_PATHS}.pkl', 'wb') as file:
     joblib.dump(state_at_step, file)
