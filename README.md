@@ -4,28 +4,32 @@ Please read this before looking at any of the code. Each script is important.
 
 ## Meta Parameters
 
-There is 1 meta-parameter used throughout many of the scripts. This parameter is found in the const.py file. The TICK_LIMIT parameter is set to 4 and should be kept this way to reproduce my results.
-The parameter controls the maximum price change allowed. Other meta parameters are found in the dp.py file.
+The meta parameter TICK_LIMIT is found in the const.py file and is used throughout the code. It controls the maximum tick change allowed from period to period as well as the size of the state space and the size of the action space at each step. I suggest leaving it to 4 to reproduce the results of my report. Other meta parameters are found in the dp.py script.
 
 ## Data Processing
 
 To preprocess the data and calculate the co-occurrence matrix, run
 
+```bash
 python transform.py
 python lag_1_cooccurrence.py
+```
 
 The files ibm_t.csv and cooccurrence_matrix.csv should appear in the data/ directory.
 
 ## Dynamic Programming Objects
 
-All mathematical objects required by any dynamic programming solution are found in the dp.py file. The individual algorithms import methods and values from this class.
-Note that I override the print function to avoid overflowing the console with text. This can be commented out if one wants to see the step by step process that is taking place.
+All mathematical objects required by any dynamic programming solution are found in the dp.py file. The individual algorithms import methods and values from this script.
+Note that I override the print function to avoid overflowing the console with text. This can be commented out if one wants to see the step by step process.
 
 ## Back Recursion
 
-This script can be on its own by running "python back_recursion.py 50".The 50 corresponds to the choice of horizon length.
-It calculates the back recursion algorithm and saves the J and U memories to some file for later use. The files can be found in the back_recursion/ directory.
-This directory is further divided based on the length of the horizon chosen. back_recursion/50/back_recursion.pkl would be the file for a horizon of length 50.
+This can be ran via
+```bash
+python back_recursion.py 50
+```
+
+The mandatory parameter "50" refers to the horizon the market maker optimizes over. This script calculates the optimal dynamic programming solution using back recursion and saves the cost-to-go (J) and action (U) objects to the back_recursion/ directory. This directory should be further subdivided by the horizon parameter specified above.
 
 ## Rollout
 
@@ -33,16 +37,34 @@ Since rollout is an online algorithm, the path_generator.py script needs to be r
 
 ### Path Generator
 
-This script generates 10,000 sample paths by using the co-occurrence matrix previously calculated. These paths are used for other scripts. The second part of this script selects 6 paths
-that are used to evaluate the performance of each algorithm. The individual paths are saved to the paths/ directory and are also organized by horizon. A plot of each set of paths is available
-in the paths/plots subfolder. The path names are uptrend, downtrend, no_change, high_vol, low_vol and avg_vol.
+This script generates 10,000 randomly samples paths by using the co-occurrence matrix calculated above. 6 of these paths are chosen as exemplars to benchmark each algorithm that is implemented. As usual, they are saved to the paths/ directory and are subdivided by the horizons 50, 100 and 200. The 6 chosen path names are uptrend, downtrend, no_change, high_vol, low_vol and avg_vol. 
 
 ### Rollout Script
 
-Once the path_generator.py script is run via "python path_generator.py", the rollout.py script can be run. An example call is "python rollout.py 50 uptrend" where 50 refers to the horizon and
-uptrend refers to the name of the path we are running the rollout algorithm on. Once completed, a dictionary is saved to the rollout/ folder with information about the states, actions and rewards
-that the solution provides. One can lower or reduce the number of stages the algorithm recurses to by changing the "if" statement in the "deeper" function. Do not that anything beyond k == 2
-takes a very long time.
+After running
+
+```bash
+python path_generator.py
+```
+
+the rollout.py script is ready for execution. An example call is
+
+```bash
+python rollout.py 50 uptrend
+```
+which refers to optimizing over the 50 period uptrend path. A dictionary is saved to the rollout/ directory subdivided by the horizon chosen. The items in the dictionary are the states, actions and rewards the algorithm produced as a final solution. One can tweak the number of recursion steps the algorithm uses to estimate the cost-to-go function by changing
+```python
+if k == 2
+```
+to
+```python
+if k == my_choice_here
+```
+in the
+```python
+deeper(state, totalcost, weight, k)
+```
+function. I do warn that any number > 2 takes a considerable amount of time.
 
 ## Parametric Approximation
 
@@ -50,49 +72,66 @@ Yet another method that relies on more than 1 script. Since parametric approxima
 
 ### Monte Carlo Sampler
 
-run python state_generator.py to yield a dictionary of states per stage that is saved to the states/ directory. This is computed by random sampling of the actions and moving
-through many sample paths that we previously generator. When all is finished, we have a distribution of states per stage that can be used to train the parametric cost-to-go function.
+run
+```bash
+python state_generator.py
+```
+to yield a dictionary of states per stage that is saved to the states/ directory. The states are generated by a random walk through the paths we previously generated.
 
 ### Parametric Approximation Script
-
-By running "python linear_parametric_approximation.py 50", one linear model is learned for each 50 stages that is specified by the "50" parameter. The monte carlo sampler samples up until
-stage 201. If your parameter exceeds a value of 200, the parameter would also have to be changed in the monte carlo sampler.
+By running
+```bash
+python linear_parametric_approximation.py 50
+```
+one linear model is learned per stage of the horizon (the horizon length is specified as 50 in the example). The linear models are learned backwards to approximate the cost-to-go functions. The monte carlo sampler in the previous step generates states up to horizon 201. One would need to change this if a horizon > 200 is desired.
 
 ## timers/ Directory
 
-This directory holds a single file called timer_dict.pkl. After each model is computed, the computation time is saved to the dictionary for later use. I would suggest looking at this
-file if you are planning on running any of these. Some take longer than others. All files that are saved can be opened with the joblib python package.
+This directory contains a single file named ticker_dict.pkl. This file holds the statistics on computation time for each model. I suggest using this file to align your expectations for how long each of these models take to compute. Any of the files in this project that end in "pkl" are opened with the joblib python package.
 
 ```python
 with open('my/file/here', 'rb') as file:
      my_object = joblib.load(file)
-``` 
+```
 
 ## Visualizing a Policy
 
-Once a model is computed a saved, the animation.py script converts the policy generated by the model into a small movie. An example call is "python animation.py 50 uptrend rollout" to denote 
-we want a horizon 50 rollout to be displayed over the uptrend path. The video generated is saved in the policies/ directory. Reading the paper will greatly help in understanding the video,
-however, I offer some explanation here.
+Once a model is computed a saved, the animator.py script converts the model generated policy into a small movie.
 
-### Plot #1 (Top left): Price Series
+```bash
+python animation.py 50 uptrend rollout
+```
+generates a 50 horizon uptrend policy to be shown with the rollout algorithm. The video is saved in the policies/ directory with the following naming convention: horizon_pathname_algorithm.mp4. Reading the paper will allow for a deeper understanding of the policies and how to interpret them, however, I offer some explanation here.
 
-This plot shows the market makers decision about where its bid and ask orders are. The bid is the green horizontal line and the ask is the red horizontal line. These lines represent the current
-decision only and do not reflect any historical decisions for these actions. The black line is the price series of the simulated path. IF the black line meets or exceeds any of the other lines,
-a transaction occurs. Given the nature of that transaction, an x is annotated to document where the purchases have taken place.
+#### Plot #1 (Top left): Price Series
 
-### Plot #2 (Top right): Net Position
+This plots shows the market makers decisions as well as the change in price from period to period. The bid price chosen by the market maker is shown as a green horizontal line. The bid price chosen by the market maker is shown as a red horizontal line. These lines represent the current decision and have no historical component factored in the visuals.
+
+The black line is the current and historical price. This is calcualted as the cummulative sum of price jumps given the specified path.
+
+Any time a transaction occurs, an "x" is annotated above the black line. The color indicates whether the transaction was a buy or a sale.
+
+#### Plot #2 (Top right): Net Position
 
 This plot is simply the position held by the market maker. If the market maker has a bid order executed, this plot will increase by one. The inverse is true for ask orders.
 
-### Plot #3 (Bottom left): Cummulative Revenue
+#### Plot #3 (Bottom left): Cummulative Revenue
 
 This plot shows the cummulative revenue of the market maker throughout the instance. The more green, the better it is doing.
 
-### Plot #4 (Bottom right): Unrealized Profit or Loss
+#### Plot #4 (Bottom right): Unrealized Profit or Loss
 
-This plot shows the current gain or loss that the market maker is holding based on the time and nature of each transaction. A large negative unrealized loss is not a good sign in this context.
+This plot shows the current gain or loss that the market maker is holding based on the time and nature of each transaction. A large negative unrealized loss is not desired.
 
-## Analying each Algorithm
+## Analyzing each Algorithm
+
+If all scripts were ran successfully, simply run
+
+```bash
+python analysis.py
+```
+
+This script generates csv files with descriptive statistics about each algorithm's performance on each of the paths and horizons. The files are found in the algorithm's respective folder under the results/ subdirectory (back_recursion/results/200.csv for example).
 
 
 
