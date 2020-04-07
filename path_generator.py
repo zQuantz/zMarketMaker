@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import sys, os
 
+np.random.seed(72)
+
 ###################################################################################################
 
 coocc = pd.read_csv("data/cooccurrence_matrix.csv", index_col=0)

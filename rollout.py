@@ -13,7 +13,7 @@ import time
 coocc = pd.read_csv('data/cooccurrence_matrix.csv', index_col = 0)
 coocc = (coocc.T / coocc.sum(axis=1)).T.values
 
-paths = np.load('data/sample_paths.npy')
+paths = np.load('paths/sample_paths.npy')
 
 ###################################################################################################
 ## Get some set of actions sorted by prority to reduce the number of calculations during the rollout.

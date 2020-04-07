@@ -6,6 +6,8 @@ import sys, os
 import joblib
 import time
 
+np.random.seed(72)
+
 K = 1
 LENGTH = 201
 NUM_PATHS = 10_000
