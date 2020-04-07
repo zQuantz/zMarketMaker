@@ -9,6 +9,7 @@ import sys, os
 MAX_POSITION = 3
 MAX_UNREALIZED = 30
 TRADE_BENEFIT = 0.25
+DRAWDOWN_PENALTY = -0.33
 
 MAX_VOLUME = 1
 MIN_VOLUME = 1
@@ -116,7 +117,7 @@ def transition_and_cost(state, action, randomness):
 	state[-1] = randomness ## Log the jump
 
 	if cost == 0 and state[1] < 0:
-		cost = 0.33 * state[1]
+		cost = DRAWDOWN_PENALTY
 	
 	return state, cost
 

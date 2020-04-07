@@ -3,10 +3,10 @@ from const import TICK_LIMIT, TICKS
 import pandas as pd
 import numpy as np
 import sys, os
-import pickle
+import joblib
 
 K = 1
-LENGTH = 50
+LENGTH = 201
 NUM_PATHS = 10_000
 paths = np.load("data/sample_paths.npy")[:NUM_PATHS, :LENGTH]
 
@@ -30,13 +30,13 @@ for i, path in enumerate(paths):
             next_state = tuple(next_state)
             
             try:
-                state_at_step[i+1][(next_state, action)] += 1
+                state_at_step[i+1][next_state] += 1
             except:
-                state_at_step[i+1][(next_state, action)] = 1
+                state_at_step[i+1][next_state] = 1
         
         idx = np.random.randint(0, len(actions))
         next_state, cost = transition_and_cost(state.copy(), actions[idx], v)
         state = next_state
 
-with open(f'states/states_{LENGTH}_{NUM_PATHS}.pickle', 'wb') as file:
-    pickle.dump(state_at_step, file)
+with open(f'states/states_{NUM_PATHS}.pkl', 'wb') as file:
+    joblib.dump(state_at_step, file)

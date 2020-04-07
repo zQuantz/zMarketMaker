@@ -1,36 +1,45 @@
-from dp import get_possible_actions, terminal_cost, transition_and_cost
+from dp import get_initial_state, get_possible_actions, terminal_cost, transition_and_cost
 from sklearn.linear_model import LinearRegression
 from const import TICK_LIMIT, TICKS
+from argparse import ArgumentParser
 import pandas as pd
 import numpy as np
 import sys, os
-import pickle
 import joblib
+import time
 
 ###################################################################################################
 
-K = 200
+argparser = ArgumentParser()
+argparser.add_argument("K")
+args = argparser.parse_args()
 
 coocc = pd.read_csv('data/cooccurrence_matrix.csv', index_col = 0)
 coocc = (coocc.T / coocc.sum(axis=1)).T.values
 
-with open(f'states/states_{K}_10000.pickle', 'rb') as file:
-	states = pickle.load(file)
+with open(f'states/states_10000.pkl', 'rb') as file:
+	states = joblib.load(file)
+states[0] = {tuple(get_initial_state()) : 10_000}
+assert int(args.K) <= len(states)
 
 ###################################################################################################
 
-def approx():
+def approx(K_):
 
+	try:
+		os.mkdir(f"approximation/{K_}")
+	except Exception as e:
+		print(e)
+
+	start = time.time()
 	np.random.seed(72)
 	models = {}
-	K = 200
+	K = K_
 
-	K -= 1
 	X, y = [], []
 	for state, count in states[K].items():
 		
-		state, _ = state
-		cost = 0#terminal_cost(state)
+		cost = terminal_cost(state)
 		
 		state = list(state)
 		count = int(count / 4)
@@ -40,22 +49,18 @@ def approx():
 
 	X, y = np.array(X), np.array(y)
 
-	model = LinearRegression()
-	models[K] = model.fit(X, y)
+	model = LinearRegression().fit(X, y)
+	models[K] = model
 	print(f"Stage {K} Model Fitted")
 
-	K -= 1
-	while(K > 0):
+	K-=1
+	while(K >= 0):
 
 		X = []
 		y = []
 
 		for i, (state, count) in enumerate(states[K].items()):
-
-			if K == 0:
-				print(state)
-
-			state, _ = state 
+ 
 			state = list(state)
 			count = int(count / 4)
 
@@ -91,15 +96,39 @@ def approx():
 		X = np.array(X)
 		y = np.array(y)
 
-		model = LinearRegression()
-		models[K] = model.fit(X, y)
+		model = LinearRegression().fit(X, y)
+		models[K] = model
 		print(f"Stage {K} Model Fitted")
-
-		with open('linear_models_2/simple_linear_models.pkl', 'wb') as file:
-			joblib.dump(models, file)
-
 		K-=1
+
+
+	end = time.time()
+
+	with open(f'approximation/{K_}/linear_models.pkl', 'wb') as file:
+		joblib.dump(models, file)
+
+	###################################################################################################
+
+	try:
+
+		with open("timers/timer_dict.pkl", "rb") as file:
+			timer_dict = joblib.load(file)
+			key = timer_dict.get("approximation", None)
+			if not key:
+				timer_dict["approximation"] = {}
+			timer_dict["approximation"][K_] = end - start
+
+		with open("timers/timer_dict.pkl", "wb") as file:
+			joblib.dump(timer_dict, file)
+
+	except Exception as e:
+
+		print(e)
+		with open("timers/timer_dict.pkl", "wb") as file:
+			timer_dict = {"approximation" : {}}
+			timer_dict["approximation"][K_] = end - start
+			joblib.dump(timer_dict, file)
 
 if __name__ == '__main__':
 
-	approx()
+	approx(int(args.K))

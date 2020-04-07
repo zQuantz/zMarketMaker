@@ -1,39 +1,48 @@
 from dp import get_initial_state, get_possible_actions, transition_and_cost, terminal_cost
 from const import TICK_LIMIT, TICKS
-# from keras.models import load_model
+from argparse import ArgumentParser
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import sys, os
 import pickle
 import joblib
+import imageio
 np.random.seed(3)
 
 ###################################################################################################
 
-PATHS = np.load('data/sample_paths.npy')
-LENGTH = 200
-PATHS = PATHS[:, :LENGTH]
+argparser = ArgumentParser()
+argparser.add_argument("K")
+argparser.add_argument("path_name")
+argparser.add_argument("method")
+args = argparser.parse_args()
 
-# nn = load_model("keras_models_3/1")
-
-with open('linear_models_2/simple_linear_models.pkl', 'rb') as file:
+with open(f'approximation/{args.K}/linear_models.pkl', 'rb') as file:
 	linear_models = joblib.load(file)
+
+try:
+	with open(f'rollout/{args.K}/{args.path_name}_policy.pkl', 'rb') as file:
+		rollout = joblib.load(file)
+except Exception as e:
+	print(e)
+
+with open(f'back_recursion/{args.K}/back_recursion.pkl', 'rb') as file:
+	br_memory = joblib.load(file)
 
 coocc = pd.read_csv('data/cooccurrence_matrix.csv', index_col = 0)
 coocc = (coocc.T / coocc.sum(axis=1)).T.values
 
 ###################################################################################################
 
-def get_exact_method_action(k, state):
-	with open(f'exact_method_200/U_{k}.pickle', 'rb') as file:
-		U = pickle.load(file)
-	return U[tuple(state)]
+def get_back_recursion_action(k, state, K):
+	return br_memory[k]['U'][tuple(state)]
 
 def get_random_action(k, state):
 	actions = get_possible_actions(state)
 	return actions[np.random.randint(0, len(actions))]
 
-def get_parametrized_action(k, state):
+def get_linear_parametrized_action(k, state, K):
 
 	costs = []
 	actions = get_possible_actions(state)
@@ -45,39 +54,18 @@ def get_parametrized_action(k, state):
 			
 			p = coocc[state[-1] + TICK_LIMIT, tick + TICK_LIMIT]
 			next_state, cost = transition_and_cost(state.copy(), action, tick)
-			avg_cost += p * (cost + nn.predict(np.array([next_state]))[0][0])
+			X = np.array([next_state])
+			pred = linear_models[k+1].predict(X)[0]
+			avg_cost += p * (cost + pred)
 		
 		costs.append(avg_cost)
 	
 	idx = np.argmax(costs)
 	return actions[idx]
 
-def get_linear_parametrized_action(k, state):
+###################################################################################################
 
-	costs = []
-	actions = get_possible_actions(state)
-	for action in actions:
-		
-		avg_cost = 0
-		
-		for tick in TICKS:
-			
-			p = coocc[state[-1] + TICK_LIMIT, tick + TICK_LIMIT]
-			next_state, cost = transition_and_cost(state.copy(), action, tick)
-			try:
-				avg_cost += p * (cost + linear_models[k+1].predict(np.array([next_state]))[0])
-			except:
-				avg_cost += p * (cost + terminal_cost(next_state))
-		
-		costs.append(avg_cost)
-	
-	idx = np.argmax(costs)
-	return actions[idx]
-
-def rollout_policy():
-
-	with open('rollout/0_200.pickle', 'rb') as file:
-		obj = pickle.load(file)
+def rollout_policy(K, path_name):
 
 	bid_prices = []
 	bid_volumes = []
@@ -92,9 +80,9 @@ def rollout_policy():
 	realized_pnls = []
 	net_position = []
 
-	path = PATHS[12, :200]
-
-	for i, (state, action, cost, jump) in enumerate(zip(*obj.values(), path)):
+	path = np.load(f"paths/{K}/{path_name}.npy")
+	state = get_initial_state()
+	for i, (state, action, cost, jump) in enumerate(zip(*rollout.values(), path)):
 
 		print("Step", i)
 
@@ -134,7 +122,7 @@ def rollout_policy():
 
 	return bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices
 
-def compute_policy(get_action):
+def compute_policy(get_action, K, path_name):
 
 	bid_prices = []
 	bid_volumes = []
@@ -149,15 +137,13 @@ def compute_policy(get_action):
 	realized_pnls = []
 	net_position = []
 
+	path = np.load(f"paths/{K}/{path_name}.npy")
 	state = get_initial_state()
-
-	jumps = PATHS[12]
-
-	for i in range(LENGTH):
+	for i in range(K):
 			
 		print("Step", i)
 
-		action = get_action(i, state)
+		action = get_action(i, state, K)
 		
 		## Log the action pre-jump
 		prices.append(0)
@@ -173,17 +159,17 @@ def compute_policy(get_action):
 		realized_pnls.append(0)
 		net_position.append(state[0])
 		
-		jump = jumps[i]
-		state, cost = transition_and_cost(state, action, jump)
+		tick = path[i]
+		state, cost = transition_and_cost(state, action, tick)
 		
 		## Log the result post-action
-		prices.append(jump)
+		prices.append(tick)
 		cprices = np.cumsum(prices)
 			
-		bid_prices.append(action[0] + cprices[-1] - jump)
+		bid_prices.append(action[0] + cprices[-1] - tick)
 		bid_volumes.append(action[1])
 
-		ask_prices.append(action[2] + cprices[-1] - jump)
+		ask_prices.append(action[2] + cprices[-1] - tick)
 		ask_volumes.append(action[3])
 
 		unrealized_pnls.append(state[1])
@@ -195,13 +181,18 @@ def compute_policy(get_action):
 
 	return bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices
 
-def z_animate():
+def z_animate(K, path_name, method):
 
-	print("Animating")
-	arrs = compute_policy(get_exact_method_action)
-	# arrs = rollout_policy()
+	if method == "approx":
+		arrs = compute_policy(get_back_recursion_action, K, path_name)
+	elif method == "back_recursion":
+		arrs = compute_policy(get_back_recursion_action, K, path_name)
+	elif method == "rollout":
+		arrs = rollout_policy(K, path_name)
+
 	bid_prices, bid_volumes, ask_prices, ask_volumes, unrealized_pnls, realized_pnls, net_position, cprices = arrs
-
+	
+	print("Animating")
 	for idx in range(1, len(cprices)):
 
 		print("Plot", idx)
@@ -214,8 +205,9 @@ def z_animate():
 		ax[0, 0].plot(cprices[:idx], color="black", label="price")
 		ax[0, 0].axhline(ask_prices[idx-1], color="r", label="ask")
 		ax[0, 0].axhline(bid_prices[idx-1], color="g", label="bid")
-		ax[0, 0].legend()
 		ax[0, 0].set_ylim(min_, max_)
+		ax[0, 0].legend()
+
 		for i in range(1, len(net_position[:idx])):
 			c = net_position[i]
 			p = net_position[i-1]
@@ -266,4 +258,15 @@ def z_animate():
 
 if __name__ == '__main__':
 
-	z_animate()
+	## Delete old images
+	os.system("rm plots/*")
+
+	## Get new images
+	z_animate(int(args.K), args.path_name, args.method)
+
+	## Stitch together
+	writer = imageio.get_writer(f'policies/{args.K}_{args.path_name}_{args.method}.mp4', fps=2)
+	num_files = len(os.listdir("plots/"))
+	for i in range(1, 1+num_files):
+		writer.append_data(imageio.imread(f"plots/{i}.png"))
+	writer.close()

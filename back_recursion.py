@@ -1,19 +1,22 @@
-from dp import get_initial_state, get_possible_actions, transition_and_cost, terminal_cost
+from dp import get_possible_actions, transition_and_cost, terminal_cost
 from dp import MAX_POSITION, MAX_UNREALIZED
 from const import TICK_LIMIT, TICKS
+from argparse import ArgumentParser
 from itertools import product
 import pandas as pd
 import numpy as np
 import sys, os
-import pickle
+import joblib
+import time
 import gc
 
 ###################################################################################################
 
-coocc = pd.read_csv("data/cooccurrence_matrix.csv", index_col=0)
-ticks = coocc.columns.astype(int).tolist()
+argparser = ArgumentParser()
+argparser.add_argument("K")
+args = argparser.parse_args()
 
-coocc = coocc.values
+coocc = pd.read_csv("data/cooccurrence_matrix.csv", index_col=0).values
 coocc = (coocc.T / coocc.sum(axis=1)).T
 
 ###################################################################################################
@@ -51,22 +54,31 @@ def state_generator(max_k):
         
     return states
 
-def solve():
+###################################################################################################
 
-	K = 200
+def solve(K_):
+
+	try:
+		os.mkdir(f"back_recursion/{K_}")
+	except Exception as e:
+		print(e)
+
+	K = K_
+	start = time.time()
 	states = state_generator(K)
 
+	###################################################################################################
+
 	### N-Step
-	J_N, U_N = {}, {}
+	MEMORY, J_N, U_N = {}, {}, {}
 	for state in states[K]:
 		J_N[tuple(state)] = terminal_cost(state)
 
-	J, U = J_N, U_N
-	with open(f'dicts/U_{K}.pickle', 'wb') as file:
-			pickle.dump(U_N, file)
-
-	with open(f'dicts/J_{K}.pickle', 'wb') as file:
-		pickle.dump(J_N, file)
+	J_K_1, U_K_1 = J_N, U_N
+	MEMORY[K] = {
+		"J" : J_K_1,
+		"U" : U_K_1
+	}
 
 	## K-Steps
 	while(K > 0):
@@ -77,30 +89,22 @@ def solve():
 		J_K, U_K = {}, {}
 		for j, state in enumerate(states[K]):
 
-			print("State", j)
-
 			actions = get_possible_actions(state)
 			costs = [-10000]*len(actions)
 
 			for i, action in enumerate(actions):
 
-				print("Action", i)
-
 				avg_cost = 0
-				
-				for tick in ticks:
+					
+				for tick in TICKS:
 
 					new_state, cost = transition_and_cost(state.copy(), action, tick)
 					p = coocc[state[-1] + TICK_LIMIT, tick + TICK_LIMIT]
-					print("Next Tick Probability", p)
-					print("Next Cost", cost)
 
 					ns = tuple(new_state)
-					print("Next State Cost-to-go", J[ns])
-					cost += J[ns]
+					cost += J_K_1[ns]
 					avg_cost += p * cost
 
-				print("State/Action Average Cost", avg_cost)
 				costs[i] = avg_cost
 
 			idx = np.argmax(costs)
@@ -108,19 +112,45 @@ def solve():
 			J_K[state] = costs[idx]
 			U_K[state] = actions[idx]
 
-		with open(f'dicts/U_{K}.pickle', 'wb') as file:
-			pickle.dump(U_K, file)
 
-		with open(f'dicts/J_{K}.pickle', 'wb') as file:
-			pickle.dump(J_K, file)
-
-		J = J_K
-		U = U_K
+		J_K_1 = J_K
+		U_K_1 = U_K
+		MEMORY[K] = {
+			"J" : J_K_1,
+			"U" : U_K_1
+		}
 
 		gc.collect()
+
+	with open(f"back_recursion/{args.K}/back_recursion.pkl", "wb") as file:
+		joblib.dump(MEMORY, file)
+
+	###################################################################################################
+
+	end = time.time()
+
+	try:
+
+		with open("timers/timer_dict.pkl", "rb") as file:
+			timer_dict = joblib.load(file)
+			key = timer_dict.get("back_recursion", None)
+			if not key:
+				timer_dict["back_recursion"] = {}
+			timer_dict["back_recursion"][K_] = end - start
+
+		with open("timers/timer_dict.pkl", "wb") as file:
+			joblib.dump(timer_dict, file)
+
+	except Exception as e:
+
+		print(e)
+		with open("timers/timer_dict.pkl", "wb") as file:
+			timer_dict = {"back_recursion" : {}}
+			timer_dict["back_recursion"][K_] = end - start
+			joblib.dump(timer_dict, file)
 
 ###################################################################################################
 
 if __name__ == '__main__':
 
-	solve()
+	solve(int(args.K))
