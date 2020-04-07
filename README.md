@@ -103,7 +103,7 @@ python animation.py 50 uptrend rollout
 ```
 generates a 50 horizon uptrend policy to be shown with the rollout algorithm. The video is saved in the policies/ directory with the following naming convention: horizon_pathname_algorithm.mp4. Reading the paper will allow for a deeper understanding of the policies and how to interpret them, however, I offer some explanation here.
 
-### Plot #1 (Top left): Price Series
+#### Plot #1 (Top left): Price Series
 
 This plots shows the market makers decisions as well as the change in price from period to period. The bid price chosen by the market maker is shown as a green horizontal line. The bid price chosen by the market maker is shown as a red horizontal line. These lines represent the current decision and have no historical component factored in the visuals.
 
@@ -111,15 +111,15 @@ The black line is the current and historical price. This is calcualted as the cu
 
 Any time a transaction occurs, an "x" is annotated above the black line. The color indicates whether the transaction was a buy or a sale.
 
-### Plot #2 (Top right): Net Position
+#### Plot #2 (Top right): Net Position
 
 This plot is simply the position held by the market maker. If the market maker has a bid order executed, this plot will increase by one. The inverse is true for ask orders.
 
-### Plot #3 (Bottom left): Cummulative Revenue
+#### Plot #3 (Bottom left): Cummulative Revenue
 
 This plot shows the cummulative revenue of the market maker throughout the instance. The more green, the better it is doing.
 
-### Plot #4 (Bottom right): Unrealized Profit or Loss
+#### Plot #4 (Bottom right): Unrealized Profit or Loss
 
 This plot shows the current gain or loss that the market maker is holding based on the time and nature of each transaction. A large negative unrealized loss is not desired.
 
