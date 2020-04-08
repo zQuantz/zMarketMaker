@@ -155,7 +155,7 @@ def approximation():
 	except Exception as e:
 		print(e)
 
-	for K in [50]:#, 100, 200]:
+	for K in [50, 100, 200]:
 
 		stats = []
 		paths = get_paths(K)
@@ -206,11 +206,11 @@ def rollout():
 
 if __name__ == '__main__':
 
-	# print("Generating Back Recursion Report")
-	# back_recursion()
+	print("Generating Back Recursion Report")
+	back_recursion()
 
 	print("Generating Approximation Report")
 	approximation()
 
-	# print("Generating Rollout Report")
-	# rollout()
+	print("Generating Rollout Report")
+	rollout()

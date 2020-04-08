@@ -183,7 +183,7 @@ def compute_policy(get_action, K, path_name):
 
 def z_animate(K, path_name, method):
 
-	if method == "approx":
+	if method == "approximation":
 		arrs = compute_policy(get_back_recursion_action, K, path_name)
 	elif method == "back_recursion":
 		arrs = compute_policy(get_back_recursion_action, K, path_name)
@@ -267,6 +267,6 @@ if __name__ == '__main__':
 	## Stitch together
 	writer = imageio.get_writer(f'policies/{args.K}_{args.path_name}_{args.method}.mp4', fps=2)
 	num_files = len(os.listdir("plots/"))
-	for i in range(1, 1+num_files):
+	for i in range(1, num_files):
 		writer.append_data(imageio.imread(f"plots/{i}.png"))
 	writer.close()
