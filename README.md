@@ -105,7 +105,7 @@ generates a 50 horizon uptrend policy to be shown with the rollout algorithm. Th
 
 #### Plot #1 (Top left): Price Series
 
-This plots shows the market makers decisions as well as the change in price from period to period. The bid price chosen by the market maker is shown as a green horizontal line. The bid price chosen by the market maker is shown as a red horizontal line. These lines represent the current decision and have no historical component factored in the visuals.
+This plots shows the market maker's decisions as well as the change in price from period to period. The bid price chosen by the market maker is shown as a green horizontal line. The ask price chosen by the market maker is shown as a red horizontal line. These lines represent the current decision and have no historical component factored in the visuals.
 
 The black line is the current and historical price. This is calcualted as the cummulative sum of price jumps given the specified path.
 
